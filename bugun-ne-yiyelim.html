@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Bugün ne yiyelim?</title>
+<style>
+  :root{
+    --bg-1:#fff5f7; --bg-2:#ffe3ec;
+    --blush:#ffb3c6; --rose:#ff7396; --red:#ff4d6d; --deep:#c9184a;
+    --ink:#5a2330; --white:#fffafc;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+    color:var(--ink);
+    background:radial-gradient(circle at 50% -10%,var(--bg-2),var(--bg-1) 60%);
+    min-height:100dvh;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    text-align:center;padding:24px;overflow-x:hidden;position:relative;
+  }
+  .floaty{position:fixed;bottom:-40px;opacity:0;animation:rise linear infinite;pointer-events:none;user-select:none;z-index:0;}
+  @keyframes rise{0%{transform:translateY(0) scale(.6) rotate(0);opacity:0}15%{opacity:.6}100%{transform:translateY(-110vh) scale(1) rotate(40deg);opacity:0}}
+
+  h1{font-size:clamp(1.6rem,6vw,2.3rem);font-weight:800;letter-spacing:-.5px;color:var(--deep);margin:0 0 4px;z-index:2;}
+  .sub{margin:0 0 22px;color:var(--rose);font-size:1rem;z-index:2;}
+
+  .wheel-wrap{position:relative;width:min(86vw,360px);aspect-ratio:1/1;margin:0 auto;z-index:2;}
+  /* Üstteki ibre */
+  .pointer{
+    position:absolute;top:-6px;left:50%;transform:translateX(-50%);
+    width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;
+    border-top:26px solid var(--deep);z-index:4;
+    filter:drop-shadow(0 3px 4px rgba(201,24,74,.4));
+  }
+  .wheel{
+    width:100%;height:100%;border-radius:50%;
+    border:10px solid var(--white);
+    box-shadow:0 18px 40px rgba(255,77,109,.35),inset 0 0 0 4px var(--blush);
+    transition:transform 4.5s cubic-bezier(.17,.67,.18,1);
+    position:relative;
+  }
+  .wheel svg{display:block;width:100%;height:100%;}
+  .wheel text{font-size:9px;font-weight:700;fill:var(--white);}
+  /* Orta göbek */
+  .hub{
+    position:absolute;top:50%;left:50%;width:54px;height:54px;
+    transform:translate(-50%,-50%);border-radius:50%;
+    background:linear-gradient(135deg,var(--red),var(--deep));
+    color:var(--white);font-weight:800;font-size:.85rem;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 6px 14px rgba(201,24,74,.5);z-index:3;border:4px solid var(--white);
+  }
+
+  .spin-btn{
+    margin-top:26px;font:inherit;font-weight:700;font-size:1.1rem;
+    border:none;cursor:pointer;border-radius:999px;padding:15px 44px;color:var(--white);
+    background:linear-gradient(135deg,var(--red),var(--deep));
+    box-shadow:0 10px 24px rgba(201,24,74,.35);transition:transform .15s ease;z-index:2;
+  }
+  .spin-btn:active{transform:scale(.96);}
+  .spin-btn:disabled{opacity:.6;cursor:default;}
+  .spin-btn:focus-visible{outline:3px solid var(--deep);outline-offset:3px;}
+
+  .result{
+    margin-top:22px;min-height:64px;z-index:2;
+    font-size:1.25rem;font-weight:800;color:var(--deep);
+    opacity:0;transform:translateY(8px);transition:opacity .4s,transform .4s;
+  }
+  .result.show{opacity:1;transform:translateY(0);}
+  .result .msg{display:block;font-size:.9rem;font-weight:600;color:var(--rose);margin-top:6px;}
+
+  @media (prefers-reduced-motion:reduce){.floaty{animation:none}.wheel{transition:transform .8s ease}}
+</style>
+</head>
+<body>
+
+  <h1>Damla'nın güzel midesini doyurmak için ne yemeliyiz? 😋</h1>
+  <p class="sub">Ama sakın Damla'dan güzel olmasın 😝</p>
+
+  <div class="wheel-wrap">
+    <div class="pointer"></div>
+    <div class="wheel" id="wheel">
+      <svg viewBox="0 0 200 200" id="wheelSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <div class="hub">YE!</div>
+  </div>
+
+  <button class="spin-btn" id="spinBtn" type="button">Çevir 🎉</button>
+
+  <div class="result" id="result"></div>
+
+  <script>
+    /* ---- Buraya istediğin yemekleri yazabilirsin ---- */
+    const foods = [
+      "Pizza 🍕","Mantı 🥟","Burger 🍔","Lahmacun 🫓","Makarna 🍝",
+      "Sushi 🍣","Döner 🌯","Köfte 🧆","Çiğ köfte 🌶️","Tavuk 🍗",
+      "Tost 🧀","Pide 🥖"
+    ];
+
+    const cuteMsgs = [
+      "İşte bu! Afiyet olsun aşkım 🥰",
+      "Mükemmel seçim, hadi sipariş! 😋",
+      "Bunu beraber yiyelim mi? 💕",
+      "Karın guruldadı bile, koş! 🏃",
+      "Tadına bakınca beni hatırla 😘",
+      "Bu akşamın yıldızı bu! ⭐"
+    ];
+
+    const colors = ["#ff4d6d","#ff7396","#c9184a","#ffb3c6"];
+    const svg = document.getElementById("wheelSvg");
+    const n = foods.length;
+    const cx=100, cy=100, r=100;
+
+    // Çark dilimlerini çiz
+    function polar(a){ return [cx + r*Math.cos(a), cy + r*Math.sin(a)]; }
+    let svgParts = "";
+    for(let i=0;i<n;i++){
+      const a0 = (i/n)*2*Math.PI - Math.PI/2;
+      const a1 = ((i+1)/n)*2*Math.PI - Math.PI/2;
+      const [x0,y0]=polar(a0); const [x1,y1]=polar(a1);
+      const large = (a1-a0)>Math.PI?1:0;
+      svgParts += `<path d="M${cx},${cy} L${x0},${y0} A${r},${r} 0 ${large} 1 ${x1},${y1} Z" fill="${colors[i%colors.length]}"/>`;
+      // yazı
+      const mid=(a0+a1)/2;
+      const tx=cx + (r*0.62)*Math.cos(mid);
+      const ty=cy + (r*0.62)*Math.sin(mid);
+      const deg = mid*180/Math.PI;
+      svgParts += `<text x="${tx}" y="${ty}" text-anchor="middle" dominant-baseline="middle" transform="rotate(${deg},${tx},${ty})">${foods[i]}</text>`;
+    }
+    svg.innerHTML = svgParts;
+
+    const wheel=document.getElementById("wheel");
+    const btn=document.getElementById("spinBtn");
+    const result=document.getElementById("result");
+    let rotation=0, spinning=false;
+
+    function spin(){
+      if(spinning) return;
+      spinning=true;
+      btn.disabled=true;
+      result.classList.remove("show");
+
+      const pick=Math.floor(Math.random()*n);
+      const sliceDeg=360/n;
+      const sliceMid = pick*sliceDeg + sliceDeg/2;
+
+      // Seçilen dilimin ortasını üstteki ibreye (tepe) hizala
+      const target = (360 - sliceMid) % 360;
+      const curMod = ((rotation % 360) + 360) % 360;
+      let delta = (target - curMod + 360) % 360; // her zaman ileri dön
+      const turns = 5 + Math.floor(Math.random()*3);
+      rotation += turns*360 + delta;
+      wheel.style.transform = `rotate(${rotation}deg)`;
+
+      setTimeout(()=>{
+        const msg = cuteMsgs[Math.floor(Math.random()*cuteMsgs.length)];
+        result.innerHTML = `Bugün: ${foods[pick]} <span class="msg">${msg}</span>`;
+        result.classList.add("show");
+        // kutlama kalpleri
+        for(let i=0;i<16;i++){
+          const h=document.createElement("span");
+          h.className="floaty";
+          h.textContent = ["💕","🍴","😋","💖"][i%4];
+          h.style.left=Math.random()*100+"vw";
+          h.style.fontSize=16+Math.random()*22+"px";
+          h.style.animationDuration=4+Math.random()*4+"s";
+          h.style.animationDelay=Math.random()*1+"s";
+          document.body.appendChild(h);
+        }
+        spinning=false;
+        btn.disabled=false;
+      },4600);
+    }
+
+    btn.addEventListener("click",spin);
+  </script>
+</body>
+</html>
